@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth System</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+        .hidden { display: none; }
+        .error { color: red; }
+        .success { color: green; }
+        input { display: block; margin: 0.5rem 0; padding: 0.5rem; width: 100%; }
+        button { padding: 0.5rem 1rem; cursor: pointer; }
+        .card { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Auth System</h1>
+
+    <!-- Auth Forms (Visible when NOT logged in) -->
+    <div id="auth-forms">
+        <div class="card">
+            <h2>Signup</h2>
+            <input type="email" id="signup-email" placeholder="Email">
+            <input type="password" id="signup-password" placeholder="Password">
+            <button onclick="signup()">Sign Up</button>
+            <p id="signup-msg"></p>
+        </div>
+
+        <div class="card">
+            <h2>Login</h2>
+            <input type="email" id="login-email" placeholder="Email">
+            <input type="password" id="login-password" placeholder="Password">
+            <button onclick="login()">Log In</button>
+            <p id="login-msg"></p>
+        </div>
+    </div>
+
+    <!-- Profile View (Visible when logged in) -->
+    <div id="profile-view" class="hidden">
+        <div class="card">
+            <h2>Your Profile</h2>
+            <p id="profile-content">Loading...</p>
+            <button onclick="logout()">Log Out</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/auth';
+
+        // Check if already logged in on load
+        const token = localStorage.getItem('token');
+        if (token) {
+            showProfile();
+        }
+
+        async function signup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const msg = document.getElementById('signup-msg');
+
+            try {
+                const res = await fetch(`${API_URL}/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (res.ok) {
+                    msg.className = 'success';
+                    msg.innerText = 'Signup successful! Please log in.';
+                } else {
+                    msg.className = 'error';
+                    msg.innerText = await res.text();
+                }
+            } catch (err) {
+                msg.innerText = 'Error connecting to server';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const msg = document.getElementById('login-msg');
+
+            try {
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+                
+                if (res.ok) {
+                    localStorage.setItem('token', data.token); // Save token
+                    showProfile();
+                } else {
+                    msg.className = 'error';
+                    msg.innerText = data.message || 'Login failed';
+                }
+            } catch (err) {
+                msg.innerText = 'Error connecting to server';
+            }
+        }
+
+        async function showProfile() {
+            // Switch UI
+            document.getElementById('auth-forms').classList.add('hidden');
+            document.getElementById('profile-view').classList.remove('hidden');
+
+            // Fetch protected data
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            const content = document.getElementById('profile-content');
+            if (res.ok) {
+                content.innerText = await res.text();
+            } else {
+                content.innerText = 'Session expired. Please log in again.';
+                logout();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            document.getElementById('auth-forms').classList.remove('hidden');
+            document.getElementById('profile-view').classList.add('hidden');
+            
+            // Clear inputs
+            document.querySelectorAll('input').forEach(i => i.value = '');
+            document.querySelectorAll('p').forEach(p => p.innerText = '');
+        }
+    </script>
+</body>
+</html>
